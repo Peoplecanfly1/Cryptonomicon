@@ -30,6 +30,76 @@
                 placeholder="Например DOGE"
               />
             </div>
+            <!-- Auto recommendation -->
+            <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
+              <span
+                class="
+                  inline-flex
+                  items-center
+                  px-2
+                  m-1
+                  rounded-md
+                  text-xs
+                  font-medium
+                  bg-gray-300
+                  text-gray-800
+                  cursor-pointer
+                "
+              >
+                BTC
+              </span>
+              <span
+                class="
+                  inline-flex
+                  items-center
+                  px-2
+                  m-1
+                  rounded-md
+                  text-xs
+                  font-medium
+                  bg-gray-300
+                  text-gray-800
+                  cursor-pointer
+                "
+              >
+                DOGE
+              </span>
+              <span
+                class="
+                  inline-flex
+                  items-center
+                  px-2
+                  m-1
+                  rounded-md
+                  text-xs
+                  font-medium
+                  bg-gray-300
+                  text-gray-800
+                  cursor-pointer
+                "
+              >
+                BCH
+              </span>
+              <span
+                class="
+                  inline-flex
+                  items-center
+                  px-2
+                  m-1
+                  rounded-md
+                  text-xs
+                  font-medium
+                  bg-gray-300
+                  text-gray-800
+                  cursor-pointer
+                "
+              >
+                CHD
+              </span>
+            </div>
+            <div v-if="sameTickerChek()" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -78,7 +148,7 @@
           <div
             v-for="t of tickers"
             :key="t.name"
-            @click="selected = t"
+            @click="select(t)"
             :class="{
               'border-4': selected == t,
             }"
@@ -143,10 +213,12 @@
           {{ selected.name }}- USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
-          <div class="bg-purple-800 border w-10 h-24"></div>
-          <div class="bg-purple-800 border w-10 h-32"></div>
-          <div class="bg-purple-800 border w-10 h-48"></div>
-          <div class="bg-purple-800 border w-10 h-16"></div>
+          <div
+            v-for="(bar, indx) in normalizeGraph()"
+            :key="indx"
+            :style="{ height: `${bar}%` }"
+            class="bg-purple-800 border w-10"
+          ></div>
         </div>
         <button
           @click="selected = null"
@@ -185,25 +257,73 @@ export default {
   name: "App",
   data() {
     return {
-      ticker: "text",
+      ticker: "",
       tickers: [],
       selected: null,
+      graph: [],
+      cryptoList: {},
     };
   },
   methods: {
     add() {
-      const newTicker = {
+      if (this.sameTickerChek()) {
+        return;
+      }
+      const currentTicker = {
         name: this.ticker.toUpperCase(),
-        price: "56",
+        price: "-",
       };
-      this.tickers.push(newTicker);
+      this.tickers.push(currentTicker);
+      setInterval(async () => {
+        const fetchResult = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=c36db6ec413c8225ec8828ddd414dd721229d8c2f2c2b9dca285cdef44b4ccf2`
+        );
+        const data = await fetchResult.json();
+
+        this.tickers.find((item) => item.name == currentTicker.name).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(4);
+
+        if (this.selected.name == currentTicker.name) {
+          this.graph.push(data.USD);
+        }
+      }, 2000);
       this.ticker = "";
     },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t != tickerToRemove);
     },
+
+    normalizeGraph() {
+      const maxValue = Math.max(...this.graph);
+      const minValue = Math.min(...this.graph);
+      return this.graph.map((price) =>
+        minValue === maxValue
+          ? 100
+          : 5 + ((price - minValue) * 95) / (maxValue - minValue)
+      );
+    },
+
+    select(ticker) {
+      this.selected = ticker;
+      this.graph = [];
+    },
+
+    sameTickerChek() {
+      return this.tickers.find((item) => item.name == this.ticker);
+    },
+  },
+  mounted: async function () {
+    const cryptoNames = await fetch(
+      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+    );
+    const cryptoData = await cryptoNames.json();
+    this.cryptoList = cryptoData;
+    console.log(cryptoData.Data);
+    let a = [];
+    for (let item in cryptoData.Data) {
+      a.push(item);
+    }
+    console.log(a);
   },
 };
 </script>
-
-<style src="./app.css"></style>
