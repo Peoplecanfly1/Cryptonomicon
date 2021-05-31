@@ -11,6 +11,7 @@
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                 v-model="ticker"
+                v-on:change="reccomend"
                 @keydown.enter="add"
                 type="text"
                 name="wallet"
@@ -47,54 +48,6 @@
                 "
               >
                 BTC
-              </span>
-              <span
-                class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
-                  rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
-                "
-              >
-                DOGE
-              </span>
-              <span
-                class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
-                  rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
-                "
-              >
-                BCH
-              </span>
-              <span
-                class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
-                  rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
-                "
-              >
-                CHD
               </span>
             </div>
             <div v-if="sameTickerChek()" class="text-sm text-red-600">
@@ -261,10 +214,35 @@ export default {
       tickers: [],
       selected: null,
       graph: [],
-      cryptoList: {},
+      cryptoList: [],
+      recomended: [],
     };
   },
+  created() {
+    const tickersData = localStorage.getItem("cryptolist");
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => this.subscibeToUpdates(ticker.name));
+    }
+  },
   methods: {
+    subscibeToUpdates(tickerName) {
+      setInterval(async () => {
+        const fetchResult = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=c36db6ec413c8225ec8828ddd414dd721229d8c2f2c2b9dca285cdef44b4ccf2`
+        );
+        const data = await fetchResult.json();
+
+        this.tickers.find((item) => item.name == tickerName).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(4);
+
+        if (this.selected.name == tickerName) {
+          this.graph.push(data.USD);
+        }
+      }, 2000);
+      this.ticker = "";
+    },
+
     add() {
       if (this.sameTickerChek()) {
         return;
@@ -274,21 +252,10 @@ export default {
         price: "-",
       };
       this.tickers.push(currentTicker);
-      setInterval(async () => {
-        const fetchResult = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=c36db6ec413c8225ec8828ddd414dd721229d8c2f2c2b9dca285cdef44b4ccf2`
-        );
-        const data = await fetchResult.json();
-
-        this.tickers.find((item) => item.name == currentTicker.name).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(4);
-
-        if (this.selected.name == currentTicker.name) {
-          this.graph.push(data.USD);
-        }
-      }, 2000);
-      this.ticker = "";
+      localStorage.setItem("cryptolist", JSON.stringify(this.tickers));
+      this.subscibeToUpdates(currentTicker.name);
     },
+
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t != tickerToRemove);
     },
@@ -311,19 +278,22 @@ export default {
     sameTickerChek() {
       return this.tickers.find((item) => item.name == this.ticker);
     },
+
+    reccomend() {
+      console.log(this.ticker);
+    },
   },
   mounted: async function () {
     const cryptoNames = await fetch(
       "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
     );
     const cryptoData = await cryptoNames.json();
-    this.cryptoList = cryptoData;
-    console.log(cryptoData.Data);
+
     let a = [];
     for (let item in cryptoData.Data) {
       a.push(item);
     }
-    console.log(a);
+    this.cryptoList = a;
   },
 };
 </script>
